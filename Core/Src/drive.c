@@ -1,9 +1,9 @@
-/*
- * drive.c
- *
- *  Created on: May 9, 2024
- *      Author: morda
- */
+/**
+  *  @file drive.c
+  *	@brief motor lib file
+  *  Created on: May 9, 2024
+  *      Author: morda
+  */
 
 
 #include "drive.h"

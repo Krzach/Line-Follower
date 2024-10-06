@@ -1,9 +1,9 @@
-/*
- * sensors.c
- *
- *  Created on: May 9, 2024
- *      Author: morda
- */
+/**
+  *  @file sensors.c
+  *	@brief sensor lib file
+  *  Created on: May 9, 2024
+  *      Author: morda
+  */
 
 #include "sensors.h"
 #include "tim.h"
@@ -136,7 +136,7 @@ float map(uint16_t x, uint16_t in_min, uint16_t in_max, uint16_t out_min, uint16
 }
 
 /**
-  * @brief  Linearly transforms the input.
+  * @brief  Calibrates sensor.
   * @param  min_values array of minimal values for each sensor
   * @retval None
   */
@@ -179,10 +179,19 @@ void get_and_Format_Sn_Data(uint16_t min_values[], uint16_t sn_data[], float err
 		errors[0]+=i*temp_data[i];
 		sum+=temp_data[i];
 	}
-	if(!sum){
-		errors[0]=errors[1];
-		return;
+//	if(!sum){
+//		errors[0]=errors[1];
+//		return;
+//	}
+//
+	if(sum<0.01){
+		if(errors[1]<0){
+			errors[0]=-3.5;
+		}else{
+			errors[0]=3.5;
+		}
+	}else{
+		errors[0]=3.5-errors[0]/sum;
 	}
-	errors[0]=3.5-errors[0]/sum;
 
 }

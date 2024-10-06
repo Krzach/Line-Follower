@@ -1,5 +1,5 @@
 /*
- * sensors.h
+ *  @file sensors.h
  *
  *  Created on: May 9, 2024
  *      Author: morda

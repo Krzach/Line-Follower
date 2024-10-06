@@ -121,7 +121,7 @@ int main(void)
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   calibrate(min_values);
-  calculate_PID_params(0.01,60.0,10,0.05,&params);
+  calculate_PID_params(0.01,30.0,0.8,0.05,&params);
   HAL_Delay(1000);
 
   float U = 0;
@@ -130,16 +130,16 @@ int main(void)
   while (1)
   {
 	  if(ifPID){
-		  get_and_Format_Sn_Data(min_values, sn_data, errors);
-		  U=PID(U,&params, errors);
-		  left = (int16_t)(160+U);
-		  right = (int16_t)(160-U);
 		  HAL_TIM_Base_Start_IT(&htim9);
 		  ifPID =0;
 
 	  }
 	  if(applyStearing){
-		  drive_from_reg(left,right);
+		  get_and_Format_Sn_Data(min_values, sn_data, errors); //get sensor data
+		  U=PID(U,&params, errors); //calculate control value
+		  left = (int16_t)(130+U);
+		  right = (int16_t)(130-U);
+		  drive_from_reg(left,right); //apply control
 		  applyStearing = 0;
 		  ifPID=1;
 	  }
@@ -198,7 +198,12 @@ void SystemClock_Config(void)
 
 /* USER CODE BEGIN 4 */
 
-
+/**
+  * @brief  Handles receiving data from UART.
+  * @param  huart UART handle.
+  * @param  Size size of received data.
+  * @retval None
+  */
 void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size)
 {
 
@@ -238,10 +243,15 @@ void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size)
     }
 }
 
+/**
+  * @brief  This timer callback transmits battery voltage information through UART every 2 seconds.
+  * @param  htim TIM handle.
+  * @retval None
+  */
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim){
 	if(htim->Instance == TIM10){
 		HAL_ADC_Start(&hadc1);
-		HAL_ADC_PollForConversion(&hadc1, HAL_MAX_DELAY); //status
+		HAL_ADC_PollForConversion(&hadc1, HAL_MAX_DELAY);
 		uint16_t value = HAL_ADC_GetValue(&hadc1);
 		value = (uint16_t)(value*0.33557 - 943.5);
 		uint8_t hundreds = (value - value%100)/100;
