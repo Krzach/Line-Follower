@@ -8,6 +8,8 @@
 #include "sensors.h"
 #include "tim.h"
 #include "gpio.h"
+
+#define MAX_VAL 2000
 /**
   * @brief  Sets given pin as input pullup.
   * @param  GPIOx where x can be (A..K) to select the GPIO peripheral
@@ -46,7 +48,7 @@ void Set_Pin_Output (GPIO_TypeDef *GPIOx, uint16_t GPIO_Pin)
 void read(uint16_t sn_data[]){
 	uint8_t state = 0;
 	for(uint8_t i = 0; i<8;++i){
-		sn_data[i]=1000;
+		sn_data[i]=MAX_VAL;
 	}
 	for(;;){
 		switch(state){
@@ -80,30 +82,30 @@ void read(uint16_t sn_data[]){
 				state = 3;
 				break;
 			case 3:
-				if(__HAL_TIM_GET_COUNTER(&htim11)>=1000) state = 4;
+				if(__HAL_TIM_GET_COUNTER(&htim11)>=MAX_VAL) state = 4;
 
-				if(!HAL_GPIO_ReadPin(Sn1_GPIO_Port, Sn1_Pin) && sn_data[0] == 1000){
+				if(!HAL_GPIO_ReadPin(Sn1_GPIO_Port, Sn1_Pin) && sn_data[0] == MAX_VAL){
 					sn_data[0] = __HAL_TIM_GET_COUNTER(&htim11);
 				}
-				if(!HAL_GPIO_ReadPin(Sn2_GPIO_Port, Sn2_Pin) && sn_data[1] == 1000){
+				if(!HAL_GPIO_ReadPin(Sn2_GPIO_Port, Sn2_Pin) && sn_data[1] == MAX_VAL){
 					sn_data[1] = __HAL_TIM_GET_COUNTER(&htim11);
 				}
-				if(!HAL_GPIO_ReadPin(Sn3_GPIO_Port, Sn3_Pin) && sn_data[2] == 1000){
+				if(!HAL_GPIO_ReadPin(Sn3_GPIO_Port, Sn3_Pin) && sn_data[2] == MAX_VAL){
 					sn_data[2] = __HAL_TIM_GET_COUNTER(&htim11);
 				}
-				if(!HAL_GPIO_ReadPin(Sn4_GPIO_Port, Sn4_Pin) && sn_data[3] == 1000){
+				if(!HAL_GPIO_ReadPin(Sn4_GPIO_Port, Sn4_Pin) && sn_data[3] == MAX_VAL){
 					sn_data[3] = __HAL_TIM_GET_COUNTER(&htim11);
 				}
-				if(!HAL_GPIO_ReadPin(Sn5_GPIO_Port, Sn5_Pin) && sn_data[4] == 1000){
+				if(!HAL_GPIO_ReadPin(Sn5_GPIO_Port, Sn5_Pin) && sn_data[4] == MAX_VAL){
 					sn_data[4] = __HAL_TIM_GET_COUNTER(&htim11);
 				}
-				if(!HAL_GPIO_ReadPin(Sn6_GPIO_Port, Sn6_Pin) && sn_data[5] == 1000){
+				if(!HAL_GPIO_ReadPin(Sn6_GPIO_Port, Sn6_Pin) && sn_data[5] == MAX_VAL){
 					sn_data[5] = __HAL_TIM_GET_COUNTER(&htim11);
 				}
-				if(!HAL_GPIO_ReadPin(Sn7_GPIO_Port, Sn7_Pin) && sn_data[6] == 1000){
+				if(!HAL_GPIO_ReadPin(Sn7_GPIO_Port, Sn7_Pin) && sn_data[6] == MAX_VAL){
 					sn_data[6] = __HAL_TIM_GET_COUNTER(&htim11);
 				}
-				if(!HAL_GPIO_ReadPin(Sn8_GPIO_Port, Sn8_Pin) && sn_data[7] == 1000){
+				if(!HAL_GPIO_ReadPin(Sn8_GPIO_Port, Sn8_Pin) && sn_data[7] == MAX_VAL){
 					sn_data[7] = __HAL_TIM_GET_COUNTER(&htim11);
 				}
 				break;
@@ -132,7 +134,7 @@ void read(uint16_t sn_data[]){
   * @retval output value
   */
 float map(uint16_t x, uint16_t in_min, uint16_t in_max, uint16_t out_min, uint16_t out_max) {
-  return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
+  return (float)((x - in_min) * (out_max - out_min)) / (float)(in_max - in_min) + out_min;
 }
 
 /**
@@ -142,7 +144,7 @@ float map(uint16_t x, uint16_t in_min, uint16_t in_max, uint16_t out_min, uint16
   */
 void calibrate(uint16_t min_values[]){
 	for(uint8_t j=0; j<8; ++j){
-		min_values[j]=1000;
+		min_values[j]=MAX_VAL;
 	}
 	uint16_t sn_data[8];
 	for(uint8_t i=0; i<20; ++i){
@@ -167,8 +169,8 @@ void get_and_Format_Sn_Data(uint16_t min_values[], uint16_t sn_data[], float err
 	read(sn_data);
 	float temp_data[8];
 	for(uint8_t i=0;i<8;++i){
-		temp_data[i]=map(sn_data[i],min_values[i],1000,0,1);
-		if(temp_data[i]<0.1) temp_data[i]=0;
+		temp_data[i]=map(sn_data[i],min_values[i],MAX_VAL,0,1);
+		if(temp_data[i]<0.02) temp_data[i]=0;
 	}
 	for(uint8_t i = 2; i>0; i--){
 		errors[i]=errors[i-1];
@@ -185,12 +187,10 @@ void get_and_Format_Sn_Data(uint16_t min_values[], uint16_t sn_data[], float err
 //	}
 //
 	if(sum<0.01){
-		if(errors[1]<0){
-			errors[0]=-3.5;
-		}else{
-			errors[0]=3.5;
-		}
+		errors[0]=0;
 	}else{
+//		if(errors[1]==4) errors[0]=-3.5;
+//		else if(errors[1]==-4) errors[0]=3.5;
 		errors[0]=3.5-errors[0]/sum;
 	}
 

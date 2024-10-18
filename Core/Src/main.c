@@ -23,13 +23,12 @@
 #include "tim.h"
 #include "usart.h"
 #include "gpio.h"
-#include "drive.h"
-#include "sensors.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include <string.h>
 #include <stdlib.h>
+#include "drive.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -74,6 +73,11 @@ float errors[3]={0};
 
 PIDparams params;
 
+uint16_t K = 80;
+uint16_t baseSpeed = 160;
+float Ti = 1;
+float Td = 0.05;
+
 /* USER CODE END 0 */
 
 /**
@@ -82,6 +86,7 @@ PIDparams params;
   */
 int main(void)
 {
+
   /* USER CODE BEGIN 1 */
   /* USER CODE END 1 */
 
@@ -108,6 +113,8 @@ int main(void)
   MX_ADC1_Init();
   MX_TIM11_Init();
   MX_TIM9_Init();
+  MX_TIM2_Init();
+  MX_TIM4_Init();
   /* USER CODE BEGIN 2 */
   HAL_TIM_Base_Start_IT(&htim3);
   HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_1);
@@ -121,7 +128,7 @@ int main(void)
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   calibrate(min_values);
-  calculate_PID_params(0.01,30.0,0.8,0.05,&params);
+  calculate_PID_params(0.01,K,Ti,Td,&params);
   HAL_Delay(1000);
 
   float U = 0;
@@ -137,8 +144,8 @@ int main(void)
 	  if(applyStearing){
 		  get_and_Format_Sn_Data(min_values, sn_data, errors); //get sensor data
 		  U=PID(U,&params, errors); //calculate control value
-		  left = (int16_t)(130+U);
-		  right = (int16_t)(130-U);
+		  left = (int16_t)(baseSpeed+U);
+		  right = (int16_t)(baseSpeed-U);
 		  drive_from_reg(left,right); //apply control
 		  applyStearing = 0;
 		  ifPID=1;
@@ -210,26 +217,49 @@ void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size)
     if(huart->Instance == USART1)
     {
     	for(uint8_t i = 0; i < Size; ++i){
-    		if((char)ReceiveBuffer[i] == 'r'){
-    			uint8_t right = 0;
+    		if((char)ReceiveBuffer[i] == 'k'){
+    			uint8_t value = 0;
     			i+=2;
     			//chR = 1;
     			for(; i < Size; ++i){
     				if((char)ReceiveBuffer[i]=='\n') break;
-    				right = right * 10 + (ReceiveBuffer[i] - '0');
+    				value = value * 10 + (ReceiveBuffer[i] - '0');
     			}
-    			drive_right(right);
+    			K = value;
+    			calculate_PID_params(0.01,K,Ti,Td,&params);
     		}
-    		if((char)ReceiveBuffer[i] == 'l'){
-    			uint8_t left = 0;
-				i+=2;
-				//chL = 1;
-				for(; i < Size; ++i){
-					if((char)ReceiveBuffer[i]=='\n') break;
-					left = left * 10 + (ReceiveBuffer[i] - '0');
-				}
-				drive_left(left);
-			}
+    		if((char)ReceiveBuffer[i] == 'i'){
+    			uint8_t value = 0;
+    			i+=2;
+    			//chR = 1;
+    			for(; i < Size; ++i){
+    				if((char)ReceiveBuffer[i]=='\n') break;
+    				value = value * 10 + (ReceiveBuffer[i] - '0');
+    			}
+    			Ti = value * 0.05;
+    			calculate_PID_params(0.01,K,Ti,Td,&params);
+    		}
+    		if((char)ReceiveBuffer[i] == 'd'){
+    			uint8_t value = 0;
+    			i+=2;
+    			//chR = 1;
+    			for(; i < Size; ++i){
+    				if((char)ReceiveBuffer[i]=='\n') break;
+    				value = value * 10 + (ReceiveBuffer[i] - '0');
+    			}
+    			Td = value * 0.01;
+    			calculate_PID_params(0.01,K,Ti,Td,&params);
+    		}
+    		if((char)ReceiveBuffer[i] == 'r'){
+    			uint8_t value = 0;
+    			i+=2;
+    			//chR = 1;
+    			for(; i < Size; ++i){
+    				if((char)ReceiveBuffer[i]=='\n') break;
+    				value = value * 10 + (ReceiveBuffer[i] - '0');
+    			}
+    			baseSpeed = value;
+    		}
     		if((char)ReceiveBuffer[i] == 'p'){
     			ifPID=1;
     		}
@@ -237,6 +267,9 @@ void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size)
     			drive_from_reg(0,0);
     			ifPID=0;
     			HAL_TIM_Base_Stop_IT(&htim9);
+    		}
+    		if((char)ReceiveBuffer[i] == 'c'){
+    			calibrate(min_values);
     		}
     	}
         HAL_UARTEx_ReceiveToIdle_DMA(&huart1, ReceiveBuffer, 16);
@@ -250,23 +283,40 @@ void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size)
   */
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim){
 	if(htim->Instance == TIM10){
-		HAL_ADC_Start(&hadc1);
-		HAL_ADC_PollForConversion(&hadc1, HAL_MAX_DELAY);
-		uint16_t value = HAL_ADC_GetValue(&hadc1);
-		value = (uint16_t)(value*0.33557 - 943.5);
+//		HAL_ADC_Start(&hadc1);
+//		HAL_ADC_PollForConversion(&hadc1, HAL_MAX_DELAY);
+//		uint16_t value = HAL_ADC_GetValue(&hadc1);
+//		value = (uint16_t)(value*0.33557 - 943.5);
+//		uint8_t hundreds = (value - value%100)/100;
+//		uint8_t tens = (value%100 - value%10)/10;
+//		uint8_t ones = value%10;
+//		if(hundreds!=0){
+//			uint8_t buff[]={'b',' ',hundreds+'0',tens+'0',ones+'0','\n'};
+//			HAL_UART_Transmit(&huart1,buff,6,1000);
+//		}else if(tens!=0){
+//			uint8_t buff[]={'b',' ',tens+'0',ones+'0','\n'};
+//			HAL_UART_Transmit(&huart1,buff,5,1000);
+//		}else{
+//			uint8_t buff[]={'b',' ',ones+'0','\n'};
+//			HAL_UART_Transmit(&huart1,buff,4,1000);
+//		}
+		get_and_Format_Sn_Data(min_values, sn_data, errors); //get sensor data
+		uint8_t value = (uint8_t)(31.875*errors[0]+127.5);
 		uint8_t hundreds = (value - value%100)/100;
 		uint8_t tens = (value%100 - value%10)/10;
 		uint8_t ones = value%10;
 		if(hundreds!=0){
-			uint8_t buff[]={'b',' ',hundreds+'0',tens+'0',ones+'0','\n'};
+			uint8_t buff[]={'x',' ',hundreds+'0',tens+'0',ones+'0','\n'};
 			HAL_UART_Transmit(&huart1,buff,6,1000);
 		}else if(tens!=0){
-			uint8_t buff[]={'b',' ',tens+'0',ones+'0','\n'};
+			uint8_t buff[]={'x',' ',tens+'0',ones+'0','\n'};
 			HAL_UART_Transmit(&huart1,buff,5,1000);
 		}else{
-			uint8_t buff[]={'b',' ',ones+'0','\n'};
+			uint8_t buff[]={'x',' ',ones+'0','\n'};
 			HAL_UART_Transmit(&huart1,buff,4,1000);
 		}
+
+
 		__HAL_TIM_SET_COUNTER(&htim10, 0);
 		HAL_TIM_Base_Start_IT(&htim10);
 	}
