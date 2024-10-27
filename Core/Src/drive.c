@@ -46,19 +46,20 @@ void drive_from_reg(int16_t left,  int16_t right){
   * @param  speed speed of left wheel (0, 255)
   * @retval None
   */
-void drive_left(uint8_t speed){
-	int16_t left = speed - 127;
+void drive_left(int16_t left){
+	//int16_t left = speed - 127;
 	if(left<0){
-		  left = (int16_t)(-left * 7.84);
+		  left = -left;
 		  HAL_GPIO_WritePin(GPIOC,IN1_Pin,GPIO_PIN_RESET);
 		  HAL_GPIO_WritePin(GPIOC,IN2_Pin,GPIO_PIN_SET);
 	}else{
-		  left = (int16_t)(left * 7.84);
 		  HAL_GPIO_WritePin(GPIOC,IN1_Pin,GPIO_PIN_SET);
 		  HAL_GPIO_WritePin(GPIOC,IN2_Pin,GPIO_PIN_RESET);
 
 	}
-	if(left < 100) left = 0;
+	//if(left < 100) left = 0;
+	if(left>1000) left=600;
+	if(left<-1000) left=-600;
 	__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_1, left);
 }
 
@@ -67,18 +68,19 @@ void drive_left(uint8_t speed){
   * @param  speed speed of right wheel (0, 255)
   * @retval None
   */
-void drive_right(uint8_t speed){
-	int16_t right = speed - 127;
+void drive_right(int16_t right){
+	//int16_t right = speed - 127;
 	if(right<0){
-		  right = (int16_t)(-right * 7.84);
+		  right = -right;
 		  HAL_GPIO_WritePin(GPIOC,IN3_Pin,GPIO_PIN_RESET);
 		  HAL_GPIO_WritePin(GPIOC,IN4_Pin,GPIO_PIN_SET);
 	}else{
-		  right = (int16_t)(right * 7.84);
 		  HAL_GPIO_WritePin(GPIOC,IN3_Pin,GPIO_PIN_SET);
 		  HAL_GPIO_WritePin(GPIOC,IN4_Pin,GPIO_PIN_RESET);
 	}
-	if(right<100) right = 0;
+	//if(right<100) right = 0;
+	if(right>1000) right=600;
+	if(right<-1000) right=-600;
 	__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_2, right);
 }
 

@@ -17,8 +17,8 @@ typedef struct {
 } PIDparams;
 
 void drive_from_reg(int16_t left,  int16_t right);
-void drive_left(uint8_t speed);
-void drive_right(uint8_t speed);
+void drive_left(int16_t speed);
+void drive_right(int16_t speed);
 void calculate_PID_params(float T, float K, float Ti, float Td, PIDparams* p);
 float PID(float oldU, PIDparams *p, float errors[]);
 
