@@ -26,6 +26,8 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "drive.h"
+#include "tim.h"
+#include <stdbool.h>
 
 /* USER CODE END Includes */
 
@@ -36,7 +38,7 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-#define PID_TASK_PERIOD pdMS_TO_TICKS(50)
+#define PID_TASK_PERIOD pdMS_TO_TICKS(10)
 #define MPC_TASK_PERIOD pdMS_TO_TICKS(100)
 
 /* USER CODE END PD */
@@ -48,7 +50,11 @@
 
 /* Private variables ---------------------------------------------------------*/
 /* USER CODE BEGIN Variables */
+volatile float rightSpeed=0;
+volatile float leftSpeed=0;
 
+volatile int16_t rightGoal = 100;
+volatile int16_t leftGoal = 100;
 
 /* USER CODE END Variables */
 osThreadId defaultTaskHandle;
@@ -59,6 +65,7 @@ osMutexId speedRightMutexHandle;
 
 /* Private function prototypes -----------------------------------------------*/
 /* USER CODE BEGIN FunctionPrototypes */
+bool have_different_signs(float a, float b);
 
 /* USER CODE END FunctionPrototypes */
 
@@ -165,66 +172,74 @@ void StartDefaultTask(void const * argument)
 void StartPIDTask(void const * argument)
 {
   /* USER CODE BEGIN StartPIDTask */
-//	PIDparams params;
-//	const float K = 0.1;
-//
-//	const float Ti = 2;
-//	const float Td = 0.05;
-//	calculate_PID_params(0.05,K,Ti,Td,&params);
-//
-	uint16_t goal = 1200;
-//
-//	float errors[3]={0};
-//
-	volatile float rightSpeed=0;
-	uint16_t lastCount = 0;
-//
-//	float U=0;
 
-  const float kp = 0.16;
-  const float kd = 0.04;
-  float ki = 0.5;
+	HAL_TIM_IC_Start(&htim10, TIM_CHANNEL_1);
 
-  float e = 0;
-  float eprev = 0;
-  const float deltaT = 0.05;
-  float eintegral = 0;
 
-  uint32_t last_ticks=0;
-  uint32_t diff = 0;
+	uint16_t encoderRightCount = 0;
+	uint16_t lastEncoderRightCount = 0;
+
+	uint16_t encoderLeftCount = 0;
+	uint16_t lastEncoderLeftCount = 0;
+
+	const float kp = 0.7;
+	const float kd = 0.00;
+	const float ki = 2;
+
+	float rightE = 0;
+	float rightEPrev = 0;
+	const float deltaT = 0.01;
+	float rightEintegral = 0;
+
+	float leftE = 0;
+	float leftEPrev = 0;
+	float leftEintegral = 0;
+
+	float diffE = 0;
 
 	TickType_t xLastWakeTime;
 	xLastWakeTime = xTaskGetTickCount();
-  /* Infinite loop */
-  for(;;)
-  {
+	/* Infinite loop */
+	for(;;)
+	{
+		/* Right motor */
+		encoderRightCount = TIM2->CNT;
 
-	  rightSpeed = (float)(TIM2->CNT - lastCount)/deltaT;
+		rightSpeed = (encoderRightCount - lastEncoderRightCount)/deltaT;
+		lastEncoderRightCount = encoderRightCount;
 
-	  lastCount = TIM2->CNT;
+		rightE = rightGoal - rightSpeed;
+		diffE = rightE - rightEPrev;
+		if(have_different_signs(rightE, rightEPrev)){
+			if(diffE>200 || diffE<-200) rightEintegral = 0;
+		}
 
-	  diff = xLastWakeTime - last_ticks;
+		rightEintegral = rightEintegral + rightE*deltaT;
+		float rightU = kp*(rightE + kd*diffE/deltaT + ki*rightEintegral);
+		rightEPrev = rightE;
 
-	  last_ticks = xLastWakeTime;
+		/*Left motor */
+		encoderLeftCount = TIM4->CNT;
 
-	  e = goal - rightSpeed;
+		leftSpeed = (lastEncoderLeftCount - encoderLeftCount)/deltaT;
 
-	  float dedt = (e-eprev)/(deltaT);
-	  eintegral = eintegral + e*deltaT;
-	  float u = kp*(e + kd*dedt + ki*eintegral);
+		lastEncoderLeftCount = encoderLeftCount;
 
-	  eprev = e;
-//	  errors[2]=errors[1];
-//	  errors[1]=errors[0];
-//	  errors[0]=goal - right;
-//
-//	  U=PID(U,&params, errors);
-//	  if(U>0) U+=100;
-//	  if(U<0) U-=100;
-	  drive_right((int16_t)u);
+		leftE = leftGoal - leftSpeed;
+		diffE = leftE - leftEPrev;
+		if(have_different_signs(leftE, leftEPrev)){
+			if(diffE>200 || diffE<-200) leftEintegral = 0; //anti-windup
+		}
+		leftEintegral = leftEintegral + leftE*deltaT;
+		float leftU = kp*(leftE + kd*diffE/deltaT + ki*leftEintegral);
+		leftEPrev = leftE;
 
-	  vTaskDelayUntil(&xLastWakeTime, PID_TASK_PERIOD);
-  }
+
+		drive_right((int16_t)rightU);
+		drive_left((int16_t)leftU);
+
+		vTaskDelayUntil(&xLastWakeTime, PID_TASK_PERIOD);
+	}
   /* USER CODE END StartPIDTask */
 }
 
@@ -238,15 +253,42 @@ void StartPIDTask(void const * argument)
 void StartMPCTask(void const * argument)
 {
   /* USER CODE BEGIN StartMPCTask */
+  TickType_t xLastWakeTime;
+  xLastWakeTime = xTaskGetTickCount();
   /* Infinite loop */
+
+  uint32_t counter=0;
+
   for(;;)
   {
-	  vTaskDelay(pdMS_TO_TICKS(500));
+	  if(osMutexWait(speedLeftMutexHandle, 100) == osOK){
+
+		  if(counter<20){
+			  rightGoal = 300;
+			  leftGoal = 300;
+		  }else if(counter <= 40){
+			  rightGoal = 1300;
+			  leftGoal = 1300;
+		  }else{
+			  counter = 0;
+		  }
+		  ++counter;
+		  osMutexRelease(speedLeftMutexHandle);
+	  }
+
+	  vTaskDelayUntil(&xLastWakeTime, MPC_TASK_PERIOD);
   }
   /* USER CODE END StartMPCTask */
 }
 
 /* Private application code --------------------------------------------------*/
 /* USER CODE BEGIN Application */
+bool have_different_signs(float a, float b) {
+    // Cast the float numbers to integers for bitwise operations
+    uint32_t a_bits = *(uint32_t*)&a;
+    uint32_t b_bits = *(uint32_t*)&b;
 
+    // XOR the sign bits and check if they differ
+    return ((a_bits ^ b_bits) & 0x80000000) != 0;
+}
 /* USER CODE END Application */

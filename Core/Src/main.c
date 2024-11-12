@@ -113,12 +113,11 @@ int main(void)
   MX_DMA_Init();
   MX_TIM3_Init();
   MX_USART1_UART_Init();
-  MX_TIM10_Init();
   MX_ADC1_Init();
   MX_TIM11_Init();
-  MX_TIM9_Init();
   MX_TIM2_Init();
   MX_TIM4_Init();
+  MX_TIM10_Init();
   /* USER CODE BEGIN 2 */
   HAL_TIM_Base_Start_IT(&htim3);
   HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_1);
@@ -126,7 +125,7 @@ int main(void)
   __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_1, 0);
   __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_2, 0);
   HAL_UARTEx_ReceiveToIdle_DMA(&huart1, ReceiveBuffer, 16);
-  HAL_TIM_Base_Start_IT(&htim10);
+  //HAL_TIM_Base_Start_IT(&htim10);
 
   HAL_TIM_Encoder_Start(&htim2, TIM_CHANNEL_ALL);
   HAL_TIM_Encoder_Start(&htim4, TIM_CHANNEL_ALL);
@@ -142,7 +141,7 @@ int main(void)
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
-  calibrate(min_values);
+  //calibrate(min_values);
 //  calculate_PID_params(0.01,K,Ti,Td,&params);
 //  HAL_Delay(1000);
 
@@ -287,7 +286,7 @@ void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size)
     		if((char)ReceiveBuffer[i] == 's'){
     			drive_from_reg(0,0);
     			ifPID=0;
-    			HAL_TIM_Base_Stop_IT(&htim9);
+    			//HAL_TIM_Base_Stop_IT(&htim9);
     		}
     		if((char)ReceiveBuffer[i] == 'c'){
     			calibrate(min_values);
@@ -297,57 +296,7 @@ void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size)
     }
 }
 
-/**
-  * @brief  This timer callback transmits battery voltage information through UART every 2 seconds.
-  * @param  htim TIM handle.
-  * @retval None
-  */
-void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim){
-	if(htim->Instance == TIM10){
-//		HAL_ADC_Start(&hadc1);
-//		HAL_ADC_PollForConversion(&hadc1, HAL_MAX_DELAY);
-//		uint16_t value = HAL_ADC_GetValue(&hadc1);
-//		value = (uint16_t)(value*0.33557 - 943.5);
-//		uint8_t hundreds = (value - value%100)/100;
-//		uint8_t tens = (value%100 - value%10)/10;
-//		uint8_t ones = value%10;
-//		if(hundreds!=0){
-//			uint8_t buff[]={'b',' ',hundreds+'0',tens+'0',ones+'0','\n'};
-//			HAL_UART_Transmit(&huart1,buff,6,1000);
-//		}else if(tens!=0){
-//			uint8_t buff[]={'b',' ',tens+'0',ones+'0','\n'};
-//			HAL_UART_Transmit(&huart1,buff,5,1000);
-//		}else{
-//			uint8_t buff[]={'b',' ',ones+'0','\n'};
-//			HAL_UART_Transmit(&huart1,buff,4,1000);
-//		}
-		get_and_Format_Sn_Data(min_values, sn_data, errors); //get sensor data
-		uint8_t value = (uint8_t)(31.875*errors[0]+127.5);
-		uint8_t hundreds = (value - value%100)/100;
-		uint8_t tens = (value%100 - value%10)/10;
-		uint8_t ones = value%10;
-		if(hundreds!=0){
-			uint8_t buff[]={'x',' ',hundreds+'0',tens+'0',ones+'0','\n'};
-			HAL_UART_Transmit(&huart1,buff,6,1000);
-		}else if(tens!=0){
-			uint8_t buff[]={'x',' ',tens+'0',ones+'0','\n'};
-			HAL_UART_Transmit(&huart1,buff,5,1000);
-		}else{
-			uint8_t buff[]={'x',' ',ones+'0','\n'};
-			HAL_UART_Transmit(&huart1,buff,4,1000);
-		}
 
-
-		__HAL_TIM_SET_COUNTER(&htim10, 0);
-		HAL_TIM_Base_Start_IT(&htim10);
-	}
-	if(htim->Instance == TIM9){
-		applyStearing = 1;
-	}
-	if (htim->Instance == TIM1) {
-		HAL_IncTick();
-	}
-}
 
 /* USER CODE END 4 */
 
@@ -362,13 +311,13 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim){
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
   /* USER CODE BEGIN Callback 0 */
-//
+
   /* USER CODE END Callback 0 */
   if (htim->Instance == TIM1) {
     HAL_IncTick();
   }
   /* USER CODE BEGIN Callback 1 */
-//
+
   /* USER CODE END Callback 1 */
 }
 

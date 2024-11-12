@@ -59,7 +59,6 @@ void drive_left(int16_t left){
 	}
 	//if(left < 100) left = 0;
 	if(left>1000) left=600;
-	if(left<-1000) left=-600;
 	__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_1, left);
 }
 
@@ -80,7 +79,6 @@ void drive_right(int16_t right){
 	}
 	//if(right<100) right = 0;
 	if(right>1000) right=600;
-	if(right<-1000) right=-600;
 	__HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_2, right);
 }
 
