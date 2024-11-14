@@ -26,7 +26,9 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "drive.h"
+#include "sensors.h"
 #include "tim.h"
+#include "MPC.h"
 #include <stdbool.h>
 
 /* USER CODE END Includes */
@@ -39,7 +41,7 @@
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
 #define PID_TASK_PERIOD pdMS_TO_TICKS(10)
-#define MPC_TASK_PERIOD pdMS_TO_TICKS(100)
+#define MPC_TASK_PERIOD pdMS_TO_TICKS(50)
 
 /* USER CODE END PD */
 
@@ -55,6 +57,11 @@ volatile float leftSpeed=0;
 
 volatile int16_t rightGoal = 100;
 volatile int16_t leftGoal = 100;
+
+
+uint16_t sn_data[8];
+uint16_t min_values[8];
+float errors[3]={0};
 
 /* USER CODE END Variables */
 osThreadId defaultTaskHandle;
@@ -99,6 +106,18 @@ void vApplicationGetIdleTaskMemory( StaticTask_t **ppxIdleTaskTCBBuffer, StackTy
 void MX_FREERTOS_Init(void) {
   /* USER CODE BEGIN Init */
 
+  calibrate(min_values);
+
+//  float Y[] = {0.24, 0};
+//  float U[] = {0, 0};
+//
+//
+//  QProblem_setup(6,6,6);
+//
+//  get_and_Format_Sn_Data(min_values, sn_data, errors);
+//  Y[1]= errors[0];
+//  calculateControl(Y, U);
+
   /* USER CODE END Init */
   /* Create the mutex(es) */
   /* definition and creation of speedLeftMutex */
@@ -127,15 +146,15 @@ void MX_FREERTOS_Init(void) {
 
   /* Create the thread(s) */
   /* definition and creation of defaultTask */
-  osThreadDef(defaultTask, StartDefaultTask, osPriorityNormal, 0, 128);
-  defaultTaskHandle = osThreadCreate(osThread(defaultTask), NULL);
+//  osThreadDef(defaultTask, StartDefaultTask, osPriorityNormal, 0, 25000);
+//  defaultTaskHandle = osThreadCreate(osThread(defaultTask), NULL);
 
   /* definition and creation of pidTask */
-  osThreadDef(pidTask, StartPIDTask, osPriorityBelowNormal, 0, 128);
+  osThreadDef(pidTask, StartPIDTask, osPriorityHigh, 0, 128);
   pidTaskHandle = osThreadCreate(osThread(pidTask), NULL);
 
   /* definition and creation of mpcTask */
-  osThreadDef(mpcTask, StartMPCTask, osPriorityLow, 0, 128);
+  osThreadDef(mpcTask, StartMPCTask, osPriorityNormal, 0, 1024);
   mpcTaskHandle = osThreadCreate(osThread(mpcTask), NULL);
 
   /* USER CODE BEGIN RTOS_THREADS */
@@ -154,7 +173,9 @@ void MX_FREERTOS_Init(void) {
 void StartDefaultTask(void const * argument)
 {
   /* USER CODE BEGIN StartDefaultTask */
+
   /* Infinite loop */
+
   for(;;)
   {
     vTaskDelay(pdMS_TO_TICKS(1000));
@@ -172,8 +193,8 @@ void StartDefaultTask(void const * argument)
 void StartPIDTask(void const * argument)
 {
   /* USER CODE BEGIN StartPIDTask */
-
-	HAL_TIM_IC_Start(&htim10, TIM_CHANNEL_1);
+//
+//	HAL_TIM_IC_Start(&htim10, TIM_CHANNEL_1);
 
 
 	uint16_t encoderRightCount = 0;
@@ -255,24 +276,28 @@ void StartMPCTask(void const * argument)
   /* USER CODE BEGIN StartMPCTask */
   TickType_t xLastWakeTime;
   xLastWakeTime = xTaskGetTickCount();
-  /* Infinite loop */
+  float Y[] = {0.24, 0};
+  float U[] = {0, 0};
 
-  uint32_t counter=0;
+
+  QProblem_setup(6,6,6);
+
+
+  /* Infinite loop */
+//  get_and_Format_Sn_Data(min_values, sn_data, errors);
+//  Y[1]= errors[0]/100;
+//  calculateControl(Y, U);
+
 
   for(;;)
   {
-	  if(osMutexWait(speedLeftMutexHandle, 100) == osOK){
+	  get_and_Format_Sn_Data(min_values, sn_data, errors);
+	  Y[1]= errors[0]/50;
+	  calculateControl(Y, U);
 
-		  if(counter<20){
-			  rightGoal = 300;
-			  leftGoal = 300;
-		  }else if(counter <= 40){
-			  rightGoal = 1300;
-			  leftGoal = 1300;
-		  }else{
-			  counter = 0;
-		  }
-		  ++counter;
+	  if(osMutexWait(speedLeftMutexHandle, 100) == osOK){
+		  rightGoal = U[1]/(2*PI)*360;
+		  leftGoal = U[0]/(2*PI)*360;
 		  osMutexRelease(speedLeftMutexHandle);
 	  }
 

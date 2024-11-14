@@ -181,10 +181,10 @@ void get_and_Format_Sn_Data(uint16_t min_values[], uint16_t sn_data[], float err
 		errors[0]+=i*temp_data[i];
 		sum+=temp_data[i];
 	}
-//	if(!sum){
-//		errors[0]=errors[1];
-//		return;
-//	}
+	if(sum < 0.1){
+		errors[0]=errors[1];
+		return;
+	}
 //
 	if(sum<0.01){
 		errors[0]=0;

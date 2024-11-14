@@ -302,11 +302,11 @@ int_t QProblem_init(	const real_t* const H,
 		return -1;
 
 	/* adjust options if provided */
-	if ( options != 0 )
-	{
-		qpOASES_Options_copy( options,&globalOptionsObject );
-		globalQProblemObject->setOptions( globalOptionsObject );
-	}
+//	if ( options != 0 )
+//	{
+//		qpOASES_Options_copy( options,&globalOptionsObject );
+//		globalQProblemObject->setOptions( globalOptionsObject );
+//	}
 
 	/* actually call solver */
 	returnValue returnvalue = globalQProblemObject->init( H,g,A,lb,ub,lbA,ubA, *nWSR,cputime );

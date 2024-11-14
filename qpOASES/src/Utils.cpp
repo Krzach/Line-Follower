@@ -67,7 +67,7 @@ int snprintf( char* s, size_t n, const char* format, ... )
 #endif /* __NO_SNPRINTF__ */
 
 /* user code begin */
-#include "func.h"
+
 #include "stm32f4xx_hal.h"
 /* user code end */
 
@@ -596,8 +596,8 @@ real_t getCPUtime( )
 	current_time =  1.0*(real_t) theclock.tv_sec + 1.0e-6* (real_t) theclock.tv_usec;
 	#endif
 
-	current_time = (double)period_count*0.01 + (double)TIM5->CNT*0.000001;
 
+	current_time = TIM10->CNT;
 	return current_time;
 }
 
