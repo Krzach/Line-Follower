@@ -170,7 +170,7 @@ void get_and_Format_Sn_Data(uint16_t min_values[], uint16_t sn_data[], float err
 	float temp_data[8];
 	for(uint8_t i=0;i<8;++i){
 		temp_data[i]=map(sn_data[i],min_values[i],MAX_VAL,0,1);
-		if(temp_data[i]<0.02) temp_data[i]=0;
+		if(temp_data[i]<0.01) temp_data[i]=0;
 	}
 	for(uint8_t i = 2; i>0; i--){
 		errors[i]=errors[i-1];
@@ -181,16 +181,15 @@ void get_and_Format_Sn_Data(uint16_t min_values[], uint16_t sn_data[], float err
 		errors[0]+=i*temp_data[i];
 		sum+=temp_data[i];
 	}
-	if(sum < 0.1){
-		errors[0]=errors[1];
-		return;
-	}
-//
-	if(sum<0.01){
-		errors[0]=0;
+	if(sum < 0.5){
+		if(errors[1]>0.2){
+			errors[0] = 4;
+		}else if(errors[1]<-0.2){
+			errors[0] = -4;
+		}else{
+			errors[0]=0;
+		}
 	}else{
-//		if(errors[1]==4) errors[0]=-3.5;
-//		else if(errors[1]==-4) errors[0]=3.5;
 		errors[0]=3.5-errors[0]/sum;
 	}
 

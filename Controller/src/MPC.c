@@ -28,8 +28,8 @@ real_t Aqp[6*6] = {
 
 
 
-real_t lb[6] = {-3 * PI, -3 * PI, -3 * PI, -3 * PI, -3 * PI, -3 * PI}; // No lower bounds on x
-real_t ub[6] = {3 * PI, 3 * PI, 3 * PI, 3 * PI, 3 * PI, 3 * PI};
+real_t lb[6] = {-4 * PI, -4 * PI, -4 * PI, -4 * PI, -4 * PI, -4 * PI}; // No lower bounds on x
+real_t ub[6] = {4 * PI, 4 * PI, 4 * PI, 4 * PI, 4 * PI, 4 * PI};
 
 real_t Hqp[6*6]={0};
 
@@ -40,21 +40,21 @@ real_t fqp[6] = { 0 };
 void calculateControl(float goalY[], float prevU[]){
 
 	real_t ubA[6] = {
-		3 * PI - prevU[0],
-		3 * PI - prevU[1],
-		3 * PI - prevU[0],
-		3 * PI - prevU[1],
-		3 * PI - prevU[0],
-		3 * PI - prevU[1]
+		4 * PI - prevU[0],
+		4 * PI - prevU[1],
+		4 * PI - prevU[0],
+		4 * PI - prevU[1],
+		4 * PI - prevU[0],
+		4 * PI - prevU[1]
 	};
 
 	real_t lbA[6] = {
-			-3 * PI - prevU[0],
-			-3 * PI - prevU[1],
-			-3 * PI - prevU[0],
-			-3 * PI - prevU[1],
-			-3 * PI - prevU[0],
-			-3 * PI - prevU[1]
+			-4 * PI - prevU[0],
+			-4 * PI - prevU[1],
+			-4 * PI - prevU[0],
+			-4 * PI - prevU[1],
+			-4 * PI - prevU[0],
+			-4 * PI - prevU[1]
 	};
 
 	static const float b = 0.0005;
