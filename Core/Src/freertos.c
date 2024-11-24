@@ -29,7 +29,7 @@
 #include "sensors.h"
 #include "tim.h"
 #include "MPC.h"
-#include <stdbool.h>
+
 
 /* USER CODE END Includes */
 
@@ -42,6 +42,7 @@
 /* USER CODE BEGIN PD */
 #define PID_TASK_PERIOD pdMS_TO_TICKS(10)
 #define MPC_TASK_PERIOD pdMS_TO_TICKS(50)
+#define DEFAULT_TASK_PERIOD pdMS_TO_TICKS(20)
 
 /* USER CODE END PD */
 
@@ -72,7 +73,7 @@ osMutexId speedRightMutexHandle;
 
 /* Private function prototypes -----------------------------------------------*/
 /* USER CODE BEGIN FunctionPrototypes */
-bool have_different_signs(float a, float b);
+//bool have_different_signs(float a, float b);
 
 /* USER CODE END FunctionPrototypes */
 
@@ -146,7 +147,7 @@ void MX_FREERTOS_Init(void) {
 
   /* Create the thread(s) */
   /* definition and creation of defaultTask */
-//  osThreadDef(defaultTask, StartDefaultTask, osPriorityNormal, 0, 25000);
+//  osThreadDef(defaultTask, StartDefaultTask, osPriorityNormal, 0, 128);
 //  defaultTaskHandle = osThreadCreate(osThread(defaultTask), NULL);
 
   /* definition and creation of pidTask */
@@ -173,12 +174,29 @@ void MX_FREERTOS_Init(void) {
 void StartDefaultTask(void const * argument)
 {
   /* USER CODE BEGIN StartDefaultTask */
+	TickType_t xLastWakeTime;
+	xLastWakeTime = xTaskGetTickCount();
+
+	const float T=0.02;
+	const float K = 60;
+	const float Ti = 2;
+	const float Td = 0.0;
+	PIDparams pidParameters={0};
+	calculate_PID_params(T,K,Ti,Td, &pidParameters);
+
+	float U=0;
+	float errors[3]={0};
+	float baseSpeed = 178;
 
   /* Infinite loop */
 
   for(;;)
   {
-    vTaskDelay(pdMS_TO_TICKS(1000));
+	 get_and_Format_Sn_Data(min_values, sn_data, errors);
+	 U = PID(U, &pidParameters, errors);
+	 baseSpeed = 300 - map((uint16_t)(fabsf(errors[0])*100),0,400,0,300);
+	 drive_from_reg((int16_t)(baseSpeed+U),(int16_t)(baseSpeed-U));
+	 vTaskDelayUntil(&xLastWakeTime, DEFAULT_TASK_PERIOD);
   }
   /* USER CODE END StartDefaultTask */
 }
@@ -284,9 +302,6 @@ void StartMPCTask(void const * argument)
 
 
   /* Infinite loop */
-//  get_and_Format_Sn_Data(min_values, sn_data, errors);
-//  Y[1]= errors[0]/100;
-//  calculateControl(Y, U);
 
 
   for(;;)
@@ -308,12 +323,5 @@ void StartMPCTask(void const * argument)
 
 /* Private application code --------------------------------------------------*/
 /* USER CODE BEGIN Application */
-bool have_different_signs(float a, float b) {
-    // Cast the float numbers to integers for bitwise operations
-    uint32_t a_bits = *(uint32_t*)&a;
-    uint32_t b_bits = *(uint32_t*)&b;
 
-    // XOR the sign bits and check if they differ
-    return ((a_bits ^ b_bits) & 0x80000000) != 0;
-}
 /* USER CODE END Application */
