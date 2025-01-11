@@ -8,6 +8,7 @@
 #include "sensors.h"
 #include "tim.h"
 #include "gpio.h"
+#include "usart.h"
 
 #define MAX_VAL 2000
 /**
@@ -137,6 +138,10 @@ float map(uint16_t x, uint16_t in_min, uint16_t in_max, uint16_t out_min, uint16
   return (float)((x - in_min) * (out_max - out_min)) / (float)(in_max - in_min) + out_min;
 }
 
+float fmap(float x, float in_min, float in_max, float out_min, float out_max){
+	return ((x - in_min) * (out_max - out_min)) / (in_max - in_min) + out_min;
+}
+
 /**
   * @brief  Calibrates sensor.
   * @param  min_values array of minimal values for each sensor
@@ -193,4 +198,22 @@ void get_and_Format_Sn_Data(uint16_t min_values[], uint16_t sn_data[], float err
 		errors[0]=3.5-errors[0]/sum;
 	}
 
+}
+
+
+void sendSensorPosition(float position){
+	uint16_t value = (uint16_t)fmap(position, -4.0, 4.0, 0.0, 800.0);
+	uint8_t hundreds = (value - value%100)/100;
+	uint8_t tens = (value%100 - value%10)/10;
+	uint8_t ones = value%10;
+	if(hundreds!=0){
+		uint8_t buff[]={hundreds+'0',tens+'0',ones+'0','\n'};
+		HAL_UART_Transmit(&huart1,buff,4,1000);
+	}else if(tens!=0){
+		uint8_t buff[]={tens+'0',ones+'0','\n'};
+		HAL_UART_Transmit(&huart1,buff,3,1000);
+	}else{
+		uint8_t buff[]={ones+'0','\n'};
+		HAL_UART_Transmit(&huart1,buff,2,1000);
+	}
 }

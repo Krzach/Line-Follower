@@ -52,7 +52,10 @@
 
 /* USER CODE BEGIN PV */
 
-//uint8_t ReceiveBuffer[16];
+uint8_t ReceiveBuffer[16];
+
+driveState carState = STOP;
+
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -122,7 +125,7 @@ int main(void)
   HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_2);
   __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_1, 0);
   __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_2, 0);
-//  HAL_UARTEx_ReceiveToIdle_DMA(&huart1, ReceiveBuffer, 16);
+  HAL_UARTEx_ReceiveToIdle_DMA(&huart1, ReceiveBuffer, 16);
   //HAL_TIM_Base_Start_IT(&htim10);
 
   HAL_TIM_Encoder_Start(&htim2, TIM_CHANNEL_ALL);
@@ -238,63 +241,17 @@ void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size)
 
     if(huart->Instance == USART1)
     {
-//    	for(uint8_t i = 0; i < Size; ++i){
-//    		if((char)ReceiveBuffer[i] == 'k'){
-//    			uint8_t value = 0;
-//    			i+=2;
-//    			//chR = 1;
-//    			for(; i < Size; ++i){
-//    				if((char)ReceiveBuffer[i]=='\n') break;
-//    				value = value * 10 + (ReceiveBuffer[i] - '0');
-//    			}
-//    			K = value;
-//    			calculate_PID_params(0.01,K,Ti,Td,&params);
-//    		}
-//    		if((char)ReceiveBuffer[i] == 'i'){
-//    			uint8_t value = 0;
-//    			i+=2;
-//    			//chR = 1;
-//    			for(; i < Size; ++i){
-//    				if((char)ReceiveBuffer[i]=='\n') break;
-//    				value = value * 10 + (ReceiveBuffer[i] - '0');
-//    			}
-//    			Ti = value * 0.05;
-//    			calculate_PID_params(0.01,K,Ti,Td,&params);
-//    		}
-//    		if((char)ReceiveBuffer[i] == 'd'){
-//    			uint8_t value = 0;
-//    			i+=2;
-//    			//chR = 1;
-//    			for(; i < Size; ++i){
-//    				if((char)ReceiveBuffer[i]=='\n') break;
-//    				value = value * 10 + (ReceiveBuffer[i] - '0');
-//    			}
-//    			Td = value * 0.01;
-//    			calculate_PID_params(0.01,K,Ti,Td,&params);
-//    		}
-//    		if((char)ReceiveBuffer[i] == 'r'){
-//    			uint8_t value = 0;
-//    			i+=2;
-//    			//chR = 1;
-//    			for(; i < Size; ++i){
-//    				if((char)ReceiveBuffer[i]=='\n') break;
-//    				value = value * 10 + (ReceiveBuffer[i] - '0');
-//    			}
-//    			baseSpeed = value;
-//    		}
-//    		if((char)ReceiveBuffer[i] == 'p'){
-//    			ifPID=1;
-//    		}
-//    		if((char)ReceiveBuffer[i] == 's'){
-//    			drive_from_reg(0,0);
-//    			ifPID=0;
-//    			//HAL_TIM_Base_Stop_IT(&htim9);
-//    		}
-//    		if((char)ReceiveBuffer[i] == 'c'){
-//    			//calibrate(min_values);
-//    		}
-//    	}
-//        HAL_UARTEx_ReceiveToIdle_DMA(&huart1, ReceiveBuffer, 16);
+    	for(uint8_t i = 0; i < Size; ++i){
+    		if((char)ReceiveBuffer[i] == 'm'){
+    			carState = REG_MPC;
+    		}else if((char)ReceiveBuffer[i] == 'p'){
+    			carState = REG_PID;
+    		}else if((char)ReceiveBuffer[i] == 's'){
+    			carState = STOP;
+    		}
+
+    	}
+        HAL_UARTEx_ReceiveToIdle_DMA(&huart1, ReceiveBuffer, 16);
     }
 }
 

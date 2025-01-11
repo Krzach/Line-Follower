@@ -97,6 +97,15 @@ typedef struct {
 	int16_t left;
 	int16_t right;
 } mSpeed;
+
+// Enum definition
+typedef uint8_t driveState;
+#define STOP ((driveState)0)
+#define REG_MPC ((driveState)1)
+#define REG_PID ((driveState)2)
+
+extern driveState carState;
+
 /* USER CODE END Private defines */
 
 #ifdef __cplusplus

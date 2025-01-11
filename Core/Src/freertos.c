@@ -40,14 +40,16 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-#define PID_TASK_PERIOD pdMS_TO_TICKS(10)
+#define DEAFAULT_TASK_PERIOD pdMS_TO_TICKS(500)
+#define MOTOR_PID_TASK_PERIOD pdMS_TO_TICKS(10)
 #define MPC_TASK_PERIOD pdMS_TO_TICKS(50)
-#define DEFAULT_TASK_PERIOD pdMS_TO_TICKS(20)
+#define PID_TASK_PERIOD pdMS_TO_TICKS(25)
 
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
 /* USER CODE BEGIN PM */
+#define MAX_COUNTER 400
 
 /* USER CODE END PM */
 
@@ -59,14 +61,17 @@ volatile float leftSpeed=0;
 volatile int16_t rightGoal = 100;
 volatile int16_t leftGoal = 100;
 
+float posHistory[MAX_COUNTER]={0};
+
 
 uint16_t sn_data[8];
 uint16_t min_values[8];
 float errors[3]={0};
 
 /* USER CODE END Variables */
-osThreadId defaultTaskHandle;
-osThreadId pidTaskHandle;
+osThreadId deafaultTaskHandle;
+osThreadId PIDTaskHandle;
+osThreadId motorPidTaskHandle;
 osThreadId mpcTaskHandle;
 osMutexId speedLeftMutexHandle;
 osMutexId speedRightMutexHandle;
@@ -77,8 +82,9 @@ osMutexId speedRightMutexHandle;
 
 /* USER CODE END FunctionPrototypes */
 
-void StartDefaultTask(void const * argument);
+void StartDeafaultTask(void const * argument);
 void StartPIDTask(void const * argument);
+void StartMotorPIDTask(void const * argument);
 void StartMPCTask(void const * argument);
 
 void MX_FREERTOS_Init(void); /* (MISRA C 2004 rule 8.1) */
@@ -147,21 +153,59 @@ void MX_FREERTOS_Init(void) {
 
   /* Create the thread(s) */
   /* definition and creation of defaultTask */
-//  osThreadDef(defaultTask, StartDefaultTask, osPriorityNormal, 0, 128);
-//  defaultTaskHandle = osThreadCreate(osThread(defaultTask), NULL);
+  osThreadDef(PidTask, StartPIDTask, osPriorityNormal, 0, 128);
+  PIDTaskHandle = osThreadCreate(osThread(PidTask), NULL);
+  osThreadSuspend(PIDTaskHandle);
 
   /* definition and creation of pidTask */
-  osThreadDef(pidTask, StartPIDTask, osPriorityHigh, 0, 128);
-  pidTaskHandle = osThreadCreate(osThread(pidTask), NULL);
+  osThreadDef(motorPidTask, StartMotorPIDTask, osPriorityHigh, 0, 128);
+  motorPidTaskHandle = osThreadCreate(osThread(motorPidTask), NULL);
+  osThreadSuspend(motorPidTaskHandle);
 
   /* definition and creation of mpcTask */
   osThreadDef(mpcTask, StartMPCTask, osPriorityNormal, 0, 1024);
   mpcTaskHandle = osThreadCreate(osThread(mpcTask), NULL);
+  osThreadSuspend(mpcTaskHandle);
 
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
+  osThreadDef(deafaultTask, StartDeafaultTask, osPriorityHigh, 0, 128);
+  deafaultTaskHandle = osThreadCreate(osThread(deafaultTask), NULL);
   /* USER CODE END RTOS_THREADS */
 
+}
+
+void StartDeafaultTask(void const * argument){
+	TickType_t xLastWakeTime;
+	xLastWakeTime = xTaskGetTickCount();
+	driveState oldCarState = STOP;
+	for(;;){
+
+		if(oldCarState != carState){
+			if(carState == REG_PID){
+				osThreadSuspend(motorPidTaskHandle);
+				osThreadSuspend(mpcTaskHandle);
+				osThreadResume(PIDTaskHandle);
+			}else if(carState == REG_MPC){
+				osThreadSuspend(PIDTaskHandle);
+				osThreadResume(mpcTaskHandle);
+				osThreadResume(motorPidTaskHandle);
+			}else if(carState == STOP){
+				osThreadSuspend(motorPidTaskHandle);
+				osThreadSuspend(mpcTaskHandle);
+				osThreadSuspend(PIDTaskHandle);
+			}
+			drive_from_reg(0,0);
+			if(oldCarState != STOP && carState == STOP){
+				  for(uint16_t i = 0; i < MAX_COUNTER; ++i){
+					  sendSensorPosition(posHistory[i]);
+				  }
+			}
+			oldCarState = carState;
+		}
+
+		vTaskDelayUntil(&xLastWakeTime, DEAFAULT_TASK_PERIOD);
+	}
 }
 
 /* USER CODE BEGIN Header_StartDefaultTask */
@@ -171,13 +215,13 @@ void MX_FREERTOS_Init(void) {
   * @retval None
   */
 /* USER CODE END Header_StartDefaultTask */
-void StartDefaultTask(void const * argument)
+void StartPIDTask(void const * argument)
 {
   /* USER CODE BEGIN StartDefaultTask */
 	TickType_t xLastWakeTime;
 	xLastWakeTime = xTaskGetTickCount();
 
-	const float T=0.02;
+	const float T=0.025;
 	const float K = 60;
 	const float Ti = 2;
 	const float Td = 0.0;
@@ -186,7 +230,8 @@ void StartDefaultTask(void const * argument)
 
 	float U=0;
 	float errors[3]={0};
-	float baseSpeed = 178;
+	float baseSpeed = 200;
+	uint16_t counter = 0;
 
   /* Infinite loop */
 
@@ -196,7 +241,15 @@ void StartDefaultTask(void const * argument)
 	 U = PID(U, &pidParameters, errors);
 	 baseSpeed = 300 - map((uint16_t)(fabsf(errors[0])*100),0,400,0,300);
 	 drive_from_reg((int16_t)(baseSpeed+U),(int16_t)(baseSpeed-U));
-	 vTaskDelayUntil(&xLastWakeTime, DEFAULT_TASK_PERIOD);
+	 vTaskDelayUntil(&xLastWakeTime, PID_TASK_PERIOD);
+	  if(counter == MAX_COUNTER){
+		  carState = STOP;
+
+	  }else{
+		  posHistory[counter] = errors[0];
+		  ++counter;
+	  }
+
   }
   /* USER CODE END StartDefaultTask */
 }
@@ -208,7 +261,7 @@ void StartDefaultTask(void const * argument)
 * @retval None
 */
 /* USER CODE END Header_StartPIDTask */
-void StartPIDTask(void const * argument)
+void StartMotorPIDTask(void const * argument)
 {
   /* USER CODE BEGIN StartPIDTask */
 //
@@ -277,7 +330,7 @@ void StartPIDTask(void const * argument)
 		drive_right((int16_t)rightU);
 		drive_left((int16_t)leftU);
 
-		vTaskDelayUntil(&xLastWakeTime, PID_TASK_PERIOD);
+		vTaskDelayUntil(&xLastWakeTime, MOTOR_PID_TASK_PERIOD);
 	}
   /* USER CODE END StartPIDTask */
 }
@@ -297,6 +350,8 @@ void StartMPCTask(void const * argument)
   float Y[] = {0.24, 0};
   float U[] = {0, 0};
 
+  uint16_t counter = 0;
+
 
   QProblem_setup(6,6,6);
 
@@ -315,7 +370,15 @@ void StartMPCTask(void const * argument)
 		  leftGoal = U[0]/(2*PI)*360;
 		  osMutexRelease(speedLeftMutexHandle);
 	  }
+	  //sendSensorPosition(errors[0]);
 
+	  if(counter == MAX_COUNTER-1){
+		  carState = STOP;
+
+	  }else{
+	  posHistory[counter] = errors[0];
+	  ++counter;
+	  }
 	  vTaskDelayUntil(&xLastWakeTime, MPC_TASK_PERIOD);
   }
   /* USER CODE END StartMPCTask */
