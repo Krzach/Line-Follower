@@ -67,20 +67,6 @@ void MX_FREERTOS_Init(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-//uint8_t ifPID=0;
-//uint8_t applyStearing=0;
-//uint8_t recv_char;
-//uint8_t recv_str[20];
-//int i=0;
-//
-//
-//
-//PIDparams params;
-//
-//uint16_t K = 80;
-//uint16_t baseSpeed = 160;
-//float Ti = 1;
-//float Td = 0.05;
 
 
 /* USER CODE END 0 */
@@ -146,35 +132,11 @@ int main(void)
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
-  //calibrate(min_values);
-//  calculate_PID_params(0.01,K,Ti,Td,&params);
-//  HAL_Delay(1000);
 
-
-//  float U = 0;
-//  int16_t left =0;
-//  int16_t right=0;
 
   while (1)
   {
-//	  right = TIM2->CNT;
-//	  left = TIM4->CNT;
-//
-//
-//	  if(ifPID){
-//		  HAL_TIM_Base_Start_IT(&htim9);
-//		  ifPID =0;
-//
-//	  }
-//	  if(applyStearing){
-//		  get_and_Format_Sn_Data(min_values, sn_data, errors); //get sensor data
-//		  U=PID(U,&params, errors); //calculate control value
-//		  left = (int16_t)(baseSpeed+U);
-//		  right = (int16_t)(baseSpeed-U);
-//		  drive_from_reg(left,right); //apply control
-//		  applyStearing = 0;
-//		  ifPID=1;
-//	  }
+
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */

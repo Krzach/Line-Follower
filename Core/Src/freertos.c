@@ -115,15 +115,6 @@ void MX_FREERTOS_Init(void) {
 
   calibrate(min_values);
 
-//  float Y[] = {0.24, 0};
-//  float U[] = {0, 0};
-//
-//
-//  QProblem_setup(6,6,6);
-//
-//  get_and_Format_Sn_Data(min_values, sn_data, errors);
-//  Y[1]= errors[0];
-//  calculateControl(Y, U);
 
   /* USER CODE END Init */
   /* Create the mutex(es) */
@@ -224,7 +215,7 @@ void StartPIDTask(void const * argument)
 	const float T=0.025;
 	const float K = 60;
 	const float Ti = 2;
-	const float Td = 0.0;
+	const float Td = 0.04;
 	PIDparams pidParameters={0};
 	calculate_PID_params(T,K,Ti,Td, &pidParameters);
 
@@ -266,8 +257,6 @@ void StartMotorPIDTask(void const * argument)
   /* USER CODE BEGIN StartPIDTask */
 //
 //	HAL_TIM_IC_Start(&htim10, TIM_CHANNEL_1);
-
-
 	uint16_t encoderRightCount = 0;
 	uint16_t lastEncoderRightCount = 0;
 
@@ -275,7 +264,7 @@ void StartMotorPIDTask(void const * argument)
 	uint16_t lastEncoderLeftCount = 0;
 
 	const float kp = 0.7;
-	const float kd = 0.00;
+	const float kd = 0.01;
 	const float ki = 2;
 
 	float rightE = 0;
@@ -370,7 +359,6 @@ void StartMPCTask(void const * argument)
 		  leftGoal = U[0]/(2*PI)*360;
 		  osMutexRelease(speedLeftMutexHandle);
 	  }
-	  //sendSensorPosition(errors[0]);
 
 	  if(counter == MAX_COUNTER-1){
 		  carState = STOP;
