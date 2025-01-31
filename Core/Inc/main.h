@@ -81,6 +81,8 @@ void Error_Handler(void);
 #define Sn2_GPIO_Port GPIOA
 #define Sn3_Pin GPIO_PIN_9
 #define Sn3_GPIO_Port GPIOA
+#define Sn5_Pin GPIO_PIN_11
+#define Sn5_GPIO_Port GPIOA
 #define TMS_Pin GPIO_PIN_13
 #define TMS_GPIO_Port GPIOA
 #define TCK_Pin GPIO_PIN_14
@@ -89,14 +91,21 @@ void Error_Handler(void);
 #define ENA_T3_CH1_GPIO_Port GPIOB
 #define ENB_T3_CH2_Pin GPIO_PIN_5
 #define ENB_T3_CH2_GPIO_Port GPIOB
-#define Sn5_Pin GPIO_PIN_6
-#define Sn5_GPIO_Port GPIOB
 
 /* USER CODE BEGIN Private defines */
 typedef struct {
 	int16_t left;
 	int16_t right;
 } mSpeed;
+
+// Enum definition
+typedef uint8_t driveState;
+#define STOP ((driveState)0)
+#define REG_MPC ((driveState)1)
+#define REG_PID ((driveState)2)
+
+extern driveState carState;
+
 /* USER CODE END Private defines */
 
 #ifdef __cplusplus

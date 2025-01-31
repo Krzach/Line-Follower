@@ -2,18 +2,16 @@
   *  @file sensors.c
   *	@brief sensor lib file
   *  Created on: May 9, 2024
-  *      Author: morda
+  *      Author: kdul
   */
 
 #include "sensors.h"
 #include "tim.h"
 #include "gpio.h"
-/**
-  * @brief  Sets given pin as input pullup.
-  * @param  GPIOx where x can be (A..K) to select the GPIO peripheral
-  * @param  GPIO_Pin specifies the port bit to set.
-  * @retval None
-  */
+#include "usart.h"
+
+#define MAX_VAL 2000
+
 void Set_Pin_Input (GPIO_TypeDef *GPIOx, uint16_t GPIO_Pin)
 {
 	GPIO_InitTypeDef GPIO_InitStruct = {0};
@@ -23,12 +21,7 @@ void Set_Pin_Input (GPIO_TypeDef *GPIOx, uint16_t GPIO_Pin)
 	HAL_GPIO_Init(GPIOx, &GPIO_InitStruct);
 }
 
-/**
-  * @brief  Sets given pin as output.
-  * @param  GPIOx where x can be (A..K) to select the GPIO peripheral
-  * @param  GPIO_Pin specifies the port bit to set.
-  * @retval None
-  */
+
 void Set_Pin_Output (GPIO_TypeDef *GPIOx, uint16_t GPIO_Pin)
 {
 	GPIO_InitTypeDef GPIO_InitStruct = {0};
@@ -38,15 +31,10 @@ void Set_Pin_Output (GPIO_TypeDef *GPIOx, uint16_t GPIO_Pin)
 	HAL_GPIO_Init(GPIOx, &GPIO_InitStruct);
 }
 
-/**
-  * @brief  Reads data from 8 sensors and saves it to an array.
-  * @param  sn_data pointer to an array.
-  * @retval None
-  */
 void read(uint16_t sn_data[]){
 	uint8_t state = 0;
 	for(uint8_t i = 0; i<8;++i){
-		sn_data[i]=1000;
+		sn_data[i]=MAX_VAL;
 	}
 	for(;;){
 		switch(state){
@@ -80,30 +68,30 @@ void read(uint16_t sn_data[]){
 				state = 3;
 				break;
 			case 3:
-				if(__HAL_TIM_GET_COUNTER(&htim11)>=1000) state = 4;
+				if(__HAL_TIM_GET_COUNTER(&htim11)>=MAX_VAL) state = 4;
 
-				if(!HAL_GPIO_ReadPin(Sn1_GPIO_Port, Sn1_Pin) && sn_data[0] == 1000){
+				if(!HAL_GPIO_ReadPin(Sn1_GPIO_Port, Sn1_Pin) && sn_data[0] == MAX_VAL){
 					sn_data[0] = __HAL_TIM_GET_COUNTER(&htim11);
 				}
-				if(!HAL_GPIO_ReadPin(Sn2_GPIO_Port, Sn2_Pin) && sn_data[1] == 1000){
+				if(!HAL_GPIO_ReadPin(Sn2_GPIO_Port, Sn2_Pin) && sn_data[1] == MAX_VAL){
 					sn_data[1] = __HAL_TIM_GET_COUNTER(&htim11);
 				}
-				if(!HAL_GPIO_ReadPin(Sn3_GPIO_Port, Sn3_Pin) && sn_data[2] == 1000){
+				if(!HAL_GPIO_ReadPin(Sn3_GPIO_Port, Sn3_Pin) && sn_data[2] == MAX_VAL){
 					sn_data[2] = __HAL_TIM_GET_COUNTER(&htim11);
 				}
-				if(!HAL_GPIO_ReadPin(Sn4_GPIO_Port, Sn4_Pin) && sn_data[3] == 1000){
+				if(!HAL_GPIO_ReadPin(Sn4_GPIO_Port, Sn4_Pin) && sn_data[3] == MAX_VAL){
 					sn_data[3] = __HAL_TIM_GET_COUNTER(&htim11);
 				}
-				if(!HAL_GPIO_ReadPin(Sn5_GPIO_Port, Sn5_Pin) && sn_data[4] == 1000){
+				if(!HAL_GPIO_ReadPin(Sn5_GPIO_Port, Sn5_Pin) && sn_data[4] == MAX_VAL){
 					sn_data[4] = __HAL_TIM_GET_COUNTER(&htim11);
 				}
-				if(!HAL_GPIO_ReadPin(Sn6_GPIO_Port, Sn6_Pin) && sn_data[5] == 1000){
+				if(!HAL_GPIO_ReadPin(Sn6_GPIO_Port, Sn6_Pin) && sn_data[5] == MAX_VAL){
 					sn_data[5] = __HAL_TIM_GET_COUNTER(&htim11);
 				}
-				if(!HAL_GPIO_ReadPin(Sn7_GPIO_Port, Sn7_Pin) && sn_data[6] == 1000){
+				if(!HAL_GPIO_ReadPin(Sn7_GPIO_Port, Sn7_Pin) && sn_data[6] == MAX_VAL){
 					sn_data[6] = __HAL_TIM_GET_COUNTER(&htim11);
 				}
-				if(!HAL_GPIO_ReadPin(Sn8_GPIO_Port, Sn8_Pin) && sn_data[7] == 1000){
+				if(!HAL_GPIO_ReadPin(Sn8_GPIO_Port, Sn8_Pin) && sn_data[7] == MAX_VAL){
 					sn_data[7] = __HAL_TIM_GET_COUNTER(&htim11);
 				}
 				break;
@@ -122,27 +110,19 @@ void read(uint16_t sn_data[]){
 	}
 }
 
-/**
-  * @brief  Linearly transforms the input.
-  * @param  x input
-  * @param 	in_min input minimal value
-  * @param  in_max input maximal value
-  * @param 	out_min output minimal value
-  * @param  out_max output maximal value
-  * @retval output value
-  */
+
 float map(uint16_t x, uint16_t in_min, uint16_t in_max, uint16_t out_min, uint16_t out_max) {
-  return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
+  return (float)((x - in_min) * (out_max - out_min)) / (float)(in_max - in_min) + out_min;
 }
 
-/**
-  * @brief  Calibrates sensor.
-  * @param  min_values array of minimal values for each sensor
-  * @retval None
-  */
+float fmap(float x, float in_min, float in_max, float out_min, float out_max){
+	return ((x - in_min) * (out_max - out_min)) / (in_max - in_min) + out_min;
+}
+
+
 void calibrate(uint16_t min_values[]){
 	for(uint8_t j=0; j<8; ++j){
-		min_values[j]=1000;
+		min_values[j]=MAX_VAL;
 	}
 	uint16_t sn_data[8];
 	for(uint8_t i=0; i<20; ++i){
@@ -156,19 +136,13 @@ void calibrate(uint16_t min_values[]){
 	}
 }
 
-/**
-  * @brief  Reads data from sensors and calculates error.
-  * @param  min_values array of minimal values for each sensor
-  * @param  sn_data sensor data array
-  * @param  errors array of errors
-  * @retval None
-  */
+
 void get_and_Format_Sn_Data(uint16_t min_values[], uint16_t sn_data[], float errors[]){
 	read(sn_data);
 	float temp_data[8];
 	for(uint8_t i=0;i<8;++i){
-		temp_data[i]=map(sn_data[i],min_values[i],1000,0,1);
-		if(temp_data[i]<0.1) temp_data[i]=0;
+		temp_data[i]=map(sn_data[i],min_values[i],MAX_VAL,0,1);
+		if(temp_data[i]<0.01) temp_data[i]=0;
 	}
 	for(uint8_t i = 2; i>0; i--){
 		errors[i]=errors[i-1];
@@ -179,19 +153,34 @@ void get_and_Format_Sn_Data(uint16_t min_values[], uint16_t sn_data[], float err
 		errors[0]+=i*temp_data[i];
 		sum+=temp_data[i];
 	}
-//	if(!sum){
-//		errors[0]=errors[1];
-//		return;
-//	}
-//
-	if(sum<0.01){
-		if(errors[1]<0){
-			errors[0]=-3.5;
+	if(sum < 0.5){
+		if(errors[1]>0.2){
+			errors[0] = 4;
+		}else if(errors[1]<-0.2){
+			errors[0] = -4;
 		}else{
-			errors[0]=3.5;
+			errors[0]=0;
 		}
 	}else{
 		errors[0]=3.5-errors[0]/sum;
 	}
 
+}
+
+
+void sendSensorPosition(float position){
+	uint16_t value = (uint16_t)fmap(position, -4.0, 4.0, 0.0, 800.0);
+	uint8_t hundreds = (value - value%100)/100;
+	uint8_t tens = (value%100 - value%10)/10;
+	uint8_t ones = value%10;
+	if(hundreds!=0){
+		uint8_t buff[]={hundreds+'0',tens+'0',ones+'0','\n'};
+		HAL_UART_Transmit(&huart1,buff,4,1000);
+	}else if(tens!=0){
+		uint8_t buff[]={tens+'0',ones+'0','\n'};
+		HAL_UART_Transmit(&huart1,buff,3,1000);
+	}else{
+		uint8_t buff[]={ones+'0','\n'};
+		HAL_UART_Transmit(&huart1,buff,2,1000);
+	}
 }

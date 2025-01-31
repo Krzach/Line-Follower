@@ -18,18 +18,19 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
+#include "cmsis_os.h"
 #include "adc.h"
 #include "dma.h"
 #include "tim.h"
 #include "usart.h"
 #include "gpio.h"
-#include "drive.h"
-#include "sensors.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include <string.h>
 #include <stdlib.h>
+#include "drive.h"
+#include "sensors.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -52,27 +53,21 @@
 /* USER CODE BEGIN PV */
 
 uint8_t ReceiveBuffer[16];
+
+driveState carState = STOP;
+
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
+void MX_FREERTOS_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-uint8_t ifPID=0;
-uint8_t applyStearing=0;
-uint8_t recv_char;
-uint8_t recv_str[20];
-int i=0;
 
-uint16_t sn_data[8];
-uint16_t min_values[8];
-float errors[3]={0};
-
-PIDparams params;
 
 /* USER CODE END 0 */
 
@@ -82,6 +77,7 @@ PIDparams params;
   */
 int main(void)
 {
+
   /* USER CODE BEGIN 1 */
   /* USER CODE END 1 */
 
@@ -104,10 +100,11 @@ int main(void)
   MX_DMA_Init();
   MX_TIM3_Init();
   MX_USART1_UART_Init();
-  MX_TIM10_Init();
   MX_ADC1_Init();
   MX_TIM11_Init();
-  MX_TIM9_Init();
+  MX_TIM2_Init();
+  MX_TIM4_Init();
+  MX_TIM10_Init();
   /* USER CODE BEGIN 2 */
   HAL_TIM_Base_Start_IT(&htim3);
   HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_1);
@@ -115,34 +112,31 @@ int main(void)
   __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_1, 0);
   __HAL_TIM_SET_COMPARE(&htim3, TIM_CHANNEL_2, 0);
   HAL_UARTEx_ReceiveToIdle_DMA(&huart1, ReceiveBuffer, 16);
-  HAL_TIM_Base_Start_IT(&htim10);
+  //HAL_TIM_Base_Start_IT(&htim10);
+
+  HAL_TIM_Encoder_Start(&htim2, TIM_CHANNEL_ALL);
+  HAL_TIM_Encoder_Start(&htim4, TIM_CHANNEL_ALL);
+
+  HAL_TIM_Base_Start(&htim10);
+  HAL_TIM_IC_Start(&htim10,TIM_CHANNEL_1);
+
   /* USER CODE END 2 */
+
+  /* Call init function for freertos objects (in cmsis_os2.c) */
+  MX_FREERTOS_Init();
+
+  /* Start scheduler */
+  osKernelStart();
+
+  /* We should never get here as control is now taken by the scheduler */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
-  calibrate(min_values);
-  calculate_PID_params(0.01,30.0,0.8,0.05,&params);
-  HAL_Delay(1000);
 
-  float U = 0;
-  int16_t left =0;
-  int16_t right=0;
+
   while (1)
   {
-	  if(ifPID){
-		  HAL_TIM_Base_Start_IT(&htim9);
-		  ifPID =0;
 
-	  }
-	  if(applyStearing){
-		  get_and_Format_Sn_Data(min_values, sn_data, errors); //get sensor data
-		  U=PID(U,&params, errors); //calculate control value
-		  left = (int16_t)(130+U);
-		  right = (int16_t)(130-U);
-		  drive_from_reg(left,right); //apply control
-		  applyStearing = 0;
-		  ifPID=1;
-	  }
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -172,9 +166,9 @@ void SystemClock_Config(void)
   RCC_OscInitStruct.HSICalibrationValue = RCC_HSICALIBRATION_DEFAULT;
   RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
   RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSI;
-  RCC_OscInitStruct.PLL.PLLM = 16;
-  RCC_OscInitStruct.PLL.PLLN = 336;
-  RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV4;
+  RCC_OscInitStruct.PLL.PLLM = 8;
+  RCC_OscInitStruct.PLL.PLLN = 100;
+  RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV2;
   RCC_OscInitStruct.PLL.PLLQ = 4;
   if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
   {
@@ -190,7 +184,7 @@ void SystemClock_Config(void)
   RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV2;
   RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV1;
 
-  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_2) != HAL_OK)
+  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_3) != HAL_OK)
   {
     Error_Handler();
   }
@@ -210,72 +204,43 @@ void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size)
     if(huart->Instance == USART1)
     {
     	for(uint8_t i = 0; i < Size; ++i){
-    		if((char)ReceiveBuffer[i] == 'r'){
-    			uint8_t right = 0;
-    			i+=2;
-    			//chR = 1;
-    			for(; i < Size; ++i){
-    				if((char)ReceiveBuffer[i]=='\n') break;
-    				right = right * 10 + (ReceiveBuffer[i] - '0');
-    			}
-    			drive_right(right);
+    		if((char)ReceiveBuffer[i] == 'm'){
+    			carState = REG_MPC;
+    		}else if((char)ReceiveBuffer[i] == 'p'){
+    			carState = REG_PID;
+    		}else if((char)ReceiveBuffer[i] == 's'){
+    			carState = STOP;
     		}
-    		if((char)ReceiveBuffer[i] == 'l'){
-    			uint8_t left = 0;
-				i+=2;
-				//chL = 1;
-				for(; i < Size; ++i){
-					if((char)ReceiveBuffer[i]=='\n') break;
-					left = left * 10 + (ReceiveBuffer[i] - '0');
-				}
-				drive_left(left);
-			}
-    		if((char)ReceiveBuffer[i] == 'p'){
-    			ifPID=1;
-    		}
-    		if((char)ReceiveBuffer[i] == 's'){
-    			drive_from_reg(0,0);
-    			ifPID=0;
-    			HAL_TIM_Base_Stop_IT(&htim9);
-    		}
+
     	}
         HAL_UARTEx_ReceiveToIdle_DMA(&huart1, ReceiveBuffer, 16);
     }
 }
 
-/**
-  * @brief  This timer callback transmits battery voltage information through UART every 2 seconds.
-  * @param  htim TIM handle.
-  * @retval None
-  */
-void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim){
-	if(htim->Instance == TIM10){
-		HAL_ADC_Start(&hadc1);
-		HAL_ADC_PollForConversion(&hadc1, HAL_MAX_DELAY);
-		uint16_t value = HAL_ADC_GetValue(&hadc1);
-		value = (uint16_t)(value*0.33557 - 943.5);
-		uint8_t hundreds = (value - value%100)/100;
-		uint8_t tens = (value%100 - value%10)/10;
-		uint8_t ones = value%10;
-		if(hundreds!=0){
-			uint8_t buff[]={'b',' ',hundreds+'0',tens+'0',ones+'0','\n'};
-			HAL_UART_Transmit(&huart1,buff,6,1000);
-		}else if(tens!=0){
-			uint8_t buff[]={'b',' ',tens+'0',ones+'0','\n'};
-			HAL_UART_Transmit(&huart1,buff,5,1000);
-		}else{
-			uint8_t buff[]={'b',' ',ones+'0','\n'};
-			HAL_UART_Transmit(&huart1,buff,4,1000);
-		}
-		__HAL_TIM_SET_COUNTER(&htim10, 0);
-		HAL_TIM_Base_Start_IT(&htim10);
-	}
-	if(htim->Instance == TIM9){
-		applyStearing = 1;
-	}
-}
+
 
 /* USER CODE END 4 */
+
+/**
+  * @brief  Period elapsed callback in non blocking mode
+  * @note   This function is called  when TIM1 interrupt took place, inside
+  * HAL_TIM_IRQHandler(). It makes a direct call to HAL_IncTick() to increment
+  * a global variable "uwTick" used as application time base.
+  * @param  htim : TIM handle
+  * @retval None
+  */
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
+{
+  /* USER CODE BEGIN Callback 0 */
+
+  /* USER CODE END Callback 0 */
+  if (htim->Instance == TIM1) {
+    HAL_IncTick();
+  }
+  /* USER CODE BEGIN Callback 1 */
+
+  /* USER CODE END Callback 1 */
+}
 
 /**
   * @brief  This function is executed in case of error occurrence.
