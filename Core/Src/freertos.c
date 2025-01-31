@@ -336,22 +336,21 @@ void StartMPCTask(void const * argument)
   /* USER CODE BEGIN StartMPCTask */
   TickType_t xLastWakeTime;
   xLastWakeTime = xTaskGetTickCount();
-  float Y[] = {0.24, 0};
+  float Y[] = {0.14, 0};
   float U[] = {0, 0};
 
   uint16_t counter = 0;
 
 
-  QProblem_setup(6,6,6);
+  QProblem_setup(4,4,4);
 
 
   /* Infinite loop */
 
-
   for(;;)
   {
 	  get_and_Format_Sn_Data(min_values, sn_data, errors);
-	  Y[1]= errors[0]/50;
+	  Y[1]= errors[0]/100;
 	  calculateControl(Y, U);
 
 	  if(osMutexWait(speedLeftMutexHandle, 100) == osOK){
